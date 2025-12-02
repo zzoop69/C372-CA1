@@ -29,47 +29,7 @@
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-sm bg-dark navbar-dark">
-      <div class="container-fluid">
-        <a class="navbar-brand" href="/inventory">Supermarket</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#collapsibleNavbar">
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="collapsibleNavbar">
-          <ul class="navbar-nav">
-            <li class="nav-item">
-              <a class="nav-link" href="/addProduct">Add Product</a>
-            </li>
-            <% if (user && user.role === 'admin') { %>
-              <li class="nav-item">
-                <a class="nav-link" href="/admin/orders">Customers Orders</a>
-              </li>
-            <% } %>
-            <% if (user) { %>
-              <% if (user.role !== 'admin') { %>
-                <li class="nav-item">
-                  <a class="nav-link" href="/cart">
-                    🛒 Cart <span class="badge bg-secondary"><%= (cart && cart.length) ? cart.length : 0 %></span>
-                  </a>
-                </li>
-              <% } %>
-              <li class="nav-item">
-                <a class="nav-link" href="/logout">Logout</a>
-              </li>
-            <% } %>
-          </ul>
-          <!-- Admin search form -->
-          <form class="d-flex ms-auto" role="search" action="/inventory" method="GET">
-            <input class="form-control me-2" type="search" placeholder="Search products" aria-label="Search" name="q" value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>">
-            <button class="btn btn-outline-light" type="submit" title="Search">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-search" viewBox="0 0 16 16">
-                <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242 1.656a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/>
-              </svg>
-            </button>
-          </form>
-        </div>
-      </div>
-    </nav>
+    <%- include('partials/adminnavbar') %>
 
   <div class="container">
     <div class="products-overlay">
