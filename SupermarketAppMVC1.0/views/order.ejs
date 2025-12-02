@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <title>Order Confirmation</title>
+  <style>
+    body { font-weight: bold; background-image: url('/images/supermarket3.jpg'); background-size:cover; }
+    .overlay { background-color: rgba(0,0,0,0.555); min-height:100vh; padding:24px; color:#fff }
+    .card { background-color: rgba(255,255,255,0.95); color:#111 }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-dark bg-dark">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="/">Supermarket App</a>
+      <div>
+        <a class="btn btn-outline-light" href="/shopping">Shop</a>
+        <a class="btn btn-outline-light ms-2" href="/cart">Cart</a>
+        <a class="btn btn-outline-light ms-2" href="/logout">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="overlay">
+    <div class="container">
+      <div class="card p-4">
+        <h2>Order Confirmation</h2>
+        <% if (!order) { %>
+          <p>No order information available.</p>
+          <a href="/shopping" class="btn btn-primary">Continue Shopping</a>
+        <% } else { %>
+          <p><strong>Order #</strong><%= order.id %></p>
+          <p><strong>Placed:</strong> <%= new Date(order.order_date).toLocaleString() %></p>
+          <p><strong>Total:</strong> $<%= Number(order.total_amount).toFixed(2) %></p>
+
+          <hr />
+          <h5>Items</h5>
+          <table class="table table-sm">
+            <thead>
+              <tr><th>Product</th><th>Qty</th><th>Price</th><th>Subtotal</th></tr>
+            </thead>
+            <tbody>
+              <% (order.items || []).forEach(it => { %>
+                <tr>
+                  <td><%= it.productName || ('#' + it.product_id) %></td>
+                  <td><%= it.quantity %></td>
+                  <td>$<%= Number(it.price).toFixed(2) %></td>
+                  <td>$<%= (it.quantity * it.price).toFixed(2) %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+
+          <div class="mt-3">
+            <a href="/shopping" class="btn btn-primary">Continue Shopping</a>
+            <a href="/orders" class="btn btn-secondary ms-2">My Orders</a>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

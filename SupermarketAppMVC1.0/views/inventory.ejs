@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <title>Supermarket App</title>
+  <style>
+      body {
+        font-weight: bold;
+      }
+      body {
+        background-image: url('/images/supermarket2.jpg');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        min-height: 100vh;
+      }
+      .bg-overlay { background-color: rgba(255,255,255,0.75); padding: 40px 0; }
+      .auth-card { max-width: 720px; margin: 0 auto; }
+      .products-overlay {
+        background-color: rgba(0, 0, 0, 0.555);
+        padding: 24px;
+        border-radius: 8px;
+        margin-bottom: 24px;
+      }
+      .products-overlay .text-center h2, .products-overlay p { color: #fff; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-sm bg-dark navbar-dark">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="/">Supermarket App</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#collapsibleNavbar">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="collapsibleNavbar">
+          <ul class="navbar-nav">
+            <li class="nav-item">
+              <a class="nav-link" href="/addProduct">Add Product</a>
+            </li>
+            <% if (user && user.role === 'admin') { %>
+              <li class="nav-item">
+                <a class="nav-link" href="/admin/orders">Customers Orders</a>
+              </li>
+            <% } %>
+            <% if (user) { %>
+              <% if (user.role !== 'admin') { %>
+                <li class="nav-item">
+                  <a class="nav-link" href="/cart">
+                    🛒 Cart <span class="badge bg-secondary"><%= (cart && cart.length) ? cart.length : 0 %></span>
+                  </a>
+                </li>
+              <% } %>
+              <li class="nav-item">
+                <a class="nav-link" href="/logout">Logout</a>
+              </li>
+            <% } %>
+          </ul>
+          <!-- Admin search form -->
+          <form class="d-flex ms-auto" role="search" action="/inventory" method="GET">
+            <input class="form-control me-2" type="search" placeholder="Search products" aria-label="Search" name="q" value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>">
+            <button class="btn btn-outline-light" type="submit" title="Search">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-search" viewBox="0 0 16 16">
+                <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242 1.656a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/>
+              </svg>
+            </button>
+          </form>
+        </div>
+      </div>
+    </nav>
+
+  <div class="container">
+    <div class="products-overlay">
+    <p>Welcome, <%= user.username %> (<%= user.role %>)</p>
+    <br>
+    <div class="text-center"><h2>Products from Supermarket App Database</h2></div>
+    <br>
+
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">
+      <% for(let i=0; i < products.length; i++) { %>
+        <div class="col">
+          <div class="card h-100">
+            <a href="/product/<%= products[i].id %>">
+              <img src="/images/<%= products[i].image %>" class="card-img-top" alt="<%= products[i].productName %>" style="height:200px; object-fit:cover;">
+            </a>
+            <div class="card-body d-flex flex-column">
+              <h5 class="card-title"><a href="/product/<%= products[i].id %>" class="text-decoration-none text-dark"><%= products[i].productName %></a></h5>
+              <p class="card-text mb-1" style="color: black;">Price: <strong>$<%= products[i].price.toFixed(2) %></strong></p>
+              <p class="card-text text-muted">Available: <%= products[i].quantity %></p>
+
+              <div class="mt-auto d-flex gap-2">
+                <a href="/product/<%= products[i].id %>" class="btn btn-outline-primary btn-sm">View</a>
+                <a href="/updateProduct/<%= products[i].id %>" class="btn btn-secondary btn-sm">Edit</a>
+                <a href="/deleteProduct/<%= products[i].id %>" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this product?')">Delete</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</body>
+</html>

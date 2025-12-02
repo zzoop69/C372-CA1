@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <title>Supermarket App</title>
+  <style>
+      body {
+        font-weight: bold;
+      }
+      body {
+        background-image: url('/images/supermarket3.jpg');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        min-height: 100vh;
+      }
+      .bg-overlay { background-color: rgba(255,255,255,0.75); padding: 40px 0; }
+      .auth-card { max-width: 720px; margin: 0 auto; }
+      .products-overlay {
+        background-color: rgba(0, 0, 0, 0.555);
+        padding: 24px;
+        border-radius: 8px;
+        margin-bottom: 24px;
+      }
+      .products-overlay .text-center h2, .products-overlay p { color: #fff; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-sm bg-dark navbar-dark">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="/">Supermarket App</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#collapsibleNavbar">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="collapsibleNavbar">
+          <ul class="navbar-nav">
+            <% if (user) { %>
+              <li class="nav-item">
+                <a class="nav-link" href="/orders">My Orders</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="/cart">🛒 Cart <span class="badge bg-secondary"><%= (cart && cart.length) ? cart.length : 0 %></span></a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="/logout">Logout</a>
+              </li>
+            <% } %>
+          </ul>
+          <!-- Search form -->
+          <form class="d-flex ms-auto" role="search" action="/shopping" method="GET">
+            <input class="form-control me-2" type="search" placeholder="Search products" aria-label="Search" name="q" value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>">
+            <button class="btn btn-outline-light" type="submit" title="Search">
+              <!-- simple search icon -->
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-search" viewBox="0 0 16 16">
+                <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242 1.656a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/>
+              </svg>
+            </button>
+          </form>
+        </div>
+      </div>
+    </nav>
+
+  <div class="container">
+    <div class="products-overlay">
+      <p>Welcome, <%= user.username %></p>
+      <br>
+      <div class="text-center"><h2>Products from Supermarket</h2></div>
+      <br>
+
+      <!-- Toast container for success messages (top-right under navbar) -->
+      <div class="position-fixed top-0 end-0 p-3" style="z-index: 1080; margin-top: 56px;">
+        <% if (messages && messages.length > 0) { %>
+          <div id="success-toast" class="toast align-items-center text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+              <div class="toast-body">
+                <%= messages[0] %>
+              </div>
+              <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+          </div>
+        <% } %>
+      </div>
+
+      <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">
+      <% for(let i=0; i < products.length; i++) { %>
+        <div class="col">
+          <div class="card h-100">
+            <a href="/product/<%= products[i].id %>">
+              <img src="/images/<%= products[i].image %>" class="card-img-top" alt="<%= products[i].productName %>" style="height:200px; object-fit:cover;">
+            </a>
+            <div class="card-body d-flex flex-column">
+              <h5 class="card-title"><a href="/product/<%= products[i].id %>" class="text-decoration-none text-dark"><%= products[i].productName %></a></h5>
+              <p class="card-text mb-1" style="color: rgb(0, 0, 0);">Price: <strong>$<%= products[i].price.toFixed(2) %></strong></p>
+              <p class="card-text text-muted">Available: <%= products[i].quantity %></p>
+
+              <div class="mt-auto">
+                <form id="add-form-<%= products[i].id %>" action="/add-to-cart/<%= products[i].id %>" method="POST" class="add-to-cart-form d-flex gap-2 align-items-center" data-name="<%= products[i].productName %>">
+                  <input type="hidden" name="id" value="<%= products[i].id %>">
+                  <input type="hidden" name="quantity" id="hidden-<%= products[i].id %>" value="1">
+                  <select name="quantity" class="form-select form-select-sm w-auto qty-select" data-available="<%= products[i].quantity %>">
+                    <% for (var q = 1; q <= Math.min(products[i].quantity, 10); q++) { %>
+                      <option value="<%= q %>"><%= q %></option>
+                    <% } %>
+                  </select>
+                  <button type="submit" class="btn btn-primary btn-sm">Add</button>
+                  <a href="/product/<%= products[i].id %>" class="btn btn-outline-secondary btn-sm ms-2">View</a>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      <% } %>
+      </div>
+    </div>
+  </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      // show success toast if present
+      try {
+        const toastEl = document.getElementById('success-toast');
+        if (toastEl) {
+          const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+          toast.show();
+        }
+      } catch (e) {
+        // ignore if bootstrap not available
+        console.warn('Toast show failed', e);
+      }
+
+      // If redirected after purchase with ?purchase=1, show a green thank-you toast
+      try {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('purchase') === '1') {
+          // create toast DOM
+          const container = document.querySelector('.position-fixed.top-0.end-0.p-3');
+          if (container) {
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = `
+              <div id="purchase-toast" class="toast align-items-center text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                  <div class="toast-body">Thank you for your purchase!</div>
+                  <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+              </div>`;
+            container.appendChild(wrapper.firstElementChild);
+            const newToastEl = document.getElementById('purchase-toast');
+            const newToast = new bootstrap.Toast(newToastEl, { delay: 3500 });
+            newToast.show();
+            // remove the query param so toast doesn't reappear on refresh
+            if (history.replaceState) {
+              const url = new URL(window.location.href);
+              url.searchParams.delete('purchase');
+              history.replaceState(null, '', url.pathname + url.search);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Purchase toast failed', e);
+      }
+
+      document.querySelectorAll('.add-to-cart-form').forEach(function (form) {
+        const select = form.querySelector('.qty-select');
+        const hidden = form.querySelector('input[type=hidden][name="quantity"]');
+        if (!select || !hidden) return;
+        const available = parseInt(select.dataset.available || '0', 10) || 0;
+
+        // sync hidden with select
+        select.addEventListener('change', function () {
+          hidden.value = this.value;
+        });
+
+        form.addEventListener('submit', function (e) {
+          e.preventDefault();
+          const val = parseInt(select.value || '0', 10) || 0;
+          if (val > available) {
+            alert('Not enough stock. Only ' + available + ' items available.');
+            select.value = String(available);
+            hidden.value = String(available);
+            return;
+          }
+
+          const action = form.getAttribute('action');
+          // send as URL-encoded so server's express.urlencoded can parse it
+          const params = new URLSearchParams();
+          params.append('quantity', hidden.value || '1');
+
+          fetch(action, {
+            method: 'POST',
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString()
+          }).then(async (resp) => {
+            const contentType = resp.headers.get('content-type') || '';
+            console.log('Add-to-cart response', resp.status, contentType);
+            if (!resp.ok) {
+              if (contentType.includes('application/json')) {
+                const data = await resp.json();
+                alert(data.error || 'Failed to add to cart');
+              } else {
+                const text = await resp.text();
+                console.warn('Non-JSON error body:', text);
+                alert('Failed to add to cart: ' + (text || resp.status));
+              }
+              return;
+            }
+              if (contentType.includes('application/json')) {
+                const data = await resp.json();
+                // update cart-count badge if exists
+                const badge = document.querySelector('.navbar .badge');
+                if (badge && data.cart) {
+                  const totalItems = (data.cart || []).reduce((s, it) => s + (it.quantity || 0), 0);
+                  badge.textContent = totalItems;
+                }
+
+                // show blue info toast: '[Quantity] x [Product Name] added to cart'
+                try {
+                  const qty = hidden.value || '1';
+                  const productName = form.dataset.name || 'item';
+                  const container = document.querySelector('.position-fixed.top-0.end-0.p-3');
+                  if (container) {
+                    const toastId = 'added-toast-' + Date.now();
+                    const wrapper = document.createElement('div');
+                    wrapper.innerHTML = `
+                      <div id="${toastId}" class="toast align-items-center text-bg-primary border-0" role="alert" aria-live="polite" aria-atomic="true">
+                        <div class="d-flex">
+                          <div class="toast-body">${qty} x ${productName} added to cart</div>
+                          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                        </div>
+                      </div>`;
+                    const toastEl = wrapper.firstElementChild;
+                    container.appendChild(toastEl);
+                    const bsToast = new bootstrap.Toast(toastEl, { delay: 3000 });
+                    toastEl.addEventListener('hidden.bs.toast', () => { toastEl.remove(); });
+                    bsToast.show();
+                  }
+                } catch (e) {
+                  console.warn('Add-to-cart toast failed', e);
+                }
+            } else {
+              // fallback: reload
+              window.location.reload();
+            }
+          }).catch(err => {
+            console.error('Add to cart error', err);
+            alert('Error adding to cart');
+          });
+        });
+      });
+    });
+  </script>
+</body>
+</html>
