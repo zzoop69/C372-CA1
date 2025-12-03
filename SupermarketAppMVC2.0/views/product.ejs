@@ -31,7 +31,11 @@
     </style>
 </head>
 <body>
-    <%- include('partials/navbar', { user: user, cart: cart }) %>
+    <% if (user && user.role === 'admin') { %>
+      <%- include('partials/adminnavbar') %>
+    <% } else { %>
+      <%- include('partials/navbar', { user: user, cart: cart }) %>
+    <% } %>
 
     <div class="container">
       <div class="products-overlay">
