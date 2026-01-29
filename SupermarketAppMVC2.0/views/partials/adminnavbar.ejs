@@ -1,0 +1,28 @@
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm modern-nav">
+	<div class="container">
+		<a class="navbar-brand d-flex align-items-center" href="/inventory">
+			<img src="/images/logo.png" alt="logo" class="me-2 logo-small" onerror="this.style.display='none'">
+			<span class="brand-text">SuperMarket</span>
+		</a>
+		<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+			<span class="navbar-toggler-icon"></span>
+		</button>
+		<div class="collapse navbar-collapse" id="mainNav">
+			<ul class="navbar-nav ms-auto">
+				<li class="nav-item"><a class="nav-link" href="/admin/dashboard">Dashboard</a></li>
+				<li class="nav-item"><a class="nav-link" href="/addProduct">Add Product</a></li>
+				<% if (user && user.role === 'admin') { %>
+					<li class="nav-item"><a class="nav-link" href="/admin/orders">Customers Orders</a></li>
+				<% } %>
+				<% if (user) { %>
+					<% if (user.role !== 'admin') { %>
+						<li class="nav-item">
+							<a class="nav-link" href="/cart">Cart <span class="badge bg-danger ms-1"><%= (cart && cart.length) ? cart.length : 0 %></span></a>
+						</li>
+					<% } %>
+					<li class="nav-item"><a class="nav-link" href="/logout">Logout</a></li>
+				<% } %>
+			</ul>
+		</div>
+	</div>
+</nav>

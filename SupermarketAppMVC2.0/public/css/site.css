@@ -1,0 +1,82 @@
+:root{
+  --brand:#1c57bd; /* navy-blue primary */
+  --nav-bg:#07274f; /* darker navy for navbar */
+  --accent:#16a34a;
+  --muted:#6c757d;
+  --bg:#dedede; /* milky white app background */
+  --card-bg:#ffffff;
+  --radius:10px;
+  --container-padding:1.25rem;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+}
+
+body{
+  /* milky white application background consistent with new theme */
+  background: linear-gradient(180deg, var(--bg), #ffffff);
+  color: #111;
+  font-family: Inter,Arial,Helvetica,sans-serif;
+}
+
+/* Navbar color overrides to enforce navy appearance */
+.modern-nav{background:var(--nav-bg) !important;border-bottom:1px solid rgba(255,255,255,0.03)}
+.modern-nav .navbar-brand,
+.modern-nav .nav-link{color:#ffffff !important}
+.modern-nav .navbar-toggler-icon{filter:invert(1) contrast(1.2)}
+
+.modern-nav .btn-primary{background:var(--brand);border-color:var(--brand)}
+.modern-nav{border-bottom:1px solid rgba(0,0,0,0.05)}
+.brand-text{font-weight:700;font-size:1.1rem}
+.brand-accent{color:var(--accent);margin-left:4px}
+.logo-small{width:36px;height:36px;object-fit:cover;border-radius:6px}
+.search-form{max-width:720px;width:100%;display:flex;gap:0.5rem}
+.search-form-admin{max-width:720px;width:100%;display:flex;gap:0.5rem}
+.search-form .form-control,.search-form-admin .form-control{flex:1;min-width:0;border-radius:8px;padding:10px}
+.search-form button,.search-form-admin button{border-radius:8px;padding:8px 16px;flex:0 0 auto}
+.btn-cart{background:transparent;border-radius:8px}
+.cart-badge{font-weight:600}
+
+.container{max-width:1180px}
+
+/* subtle glass card effect for main content to sit on */
+.page-card{
+  background: linear-gradient(180deg, rgba(255,255,255,0.88), rgba(250,250,250,0.8));
+  border-radius: 12px;
+  padding: var(--container-padding);
+  box-shadow: 0 10px 30px rgba(16,24,40,0.07);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(16,24,40,0.03);
+}
+
+.card-product{background:var(--card-bg);border-radius:var(--radius);box-shadow:0 6px 18px rgba(16,24,40,0.06);overflow:hidden}
+.product-image{height:180px;object-fit:cover;width:100%;display:block}
+.product-body{padding:12px}
+.product-title{font-weight:600;font-size:1rem}
+.price{color:var(--brand);font-weight:700}
+.badge-sale{background:var(--accent);color:#fff;padding:4px 8px;border-radius:6px;font-size:0.75rem}
+
+.site-footer{background:#fff;border-top:1px solid rgba(0,0,0,0.05)}
+.site-footer a{color:inherit;text-decoration:none}
+
+.btn-primary{background:var(--brand);border-color:var(--brand)}
+.btn-outline-primary{color:var(--brand);border-color:var(--brand)}
+
+/* Responsive tweaks */
+@media (max-width:768px){
+  .search-form{width:100%;margin:8px 0}
+  .logo-small{width:28px;height:28px}
+}
+
+/* Utilities used in templates */
+.hero{background:linear-gradient(90deg, rgba(22,163,74,0.08), rgba(13,110,253,0.04));padding:32px;border-radius:12px;margin-bottom:24px;border:1px solid rgba(16,24,40,0.03)}
+.badge-qty{background:#eef2ff;color:var(--brand);padding:6px 8px;border-radius:6px}
+
+/* Make tables slightly nicer */
+table.table{background:#fff;border-radius:8px;overflow:hidden}
+
+/* Make all navbar wording bold (brand + links) */
+.navbar .nav-link,
+.navbar-brand,
+.modern-nav .nav-link,
+.modern-nav .brand-text{
+  font-weight:700;
+}

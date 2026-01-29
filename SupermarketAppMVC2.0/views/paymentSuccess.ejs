@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/head', { title: 'Payment Successful' }) %>
+<style>
+  .overlay { background-color: rgba(0,0,0,0.055); min-height:100vh; padding:24px }
+  .card { background-color: rgba(255,255,255,0.95); color:#111 }
+</style>
+</head>
+<body>
+  <%- include('partials/navbar', { user: user, cart: [] }) %>
+  <div class="overlay">
+    <div class="container">
+      <div class="card p-4 text-center">
+        <h2 class="text-success">Payment Successful</h2>
+        <p class="mb-4">Thank you — your payment was completed successfully.</p>
+        <div class="d-flex justify-content-center gap-2">
+          <a href="/cart" class="btn btn-secondary">Back to Cart</a>
+          <% if (typeof orderId !== 'undefined' && orderId) { %>
+            <a href="/invoice/<%= orderId %>" class="btn btn-primary">View / Print Invoice</a>
+          <% } else { %>
+            <a href="/orders" class="btn btn-primary">View Orders</a>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

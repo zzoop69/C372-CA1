@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/head', { title: 'Admin - Dashboard' }) %>
+<style>
+  body { background: #f7f8fb; }
+  .card { border: none; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08); }
+  .kpi-value { font-size: 2rem; font-weight: 700; }
+  .muted { color: #6b7280; }
+</style>
+</head>
+<body>
+  <%- include('partials/adminnavbar', { user: user, cart: (typeof cart !== 'undefined' ? cart : null) }) %>
+
+  <div class="container mt-4">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h2 class="mb-0">Admin Dashboard</h2>
+      <span class="muted">Completed payments only</span>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-md-4">
+        <div class="card p-3">
+          <div class="muted">Total Revenue</div>
+          <div class="kpi-value">$<%= Number(totalRevenue || 0).toFixed(2) %></div>
+        </div>
+      </div>
+      <div class="col-md-8">
+        <div class="card p-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+              <div class="fw-semibold">Revenue Over Time</div>
+              <div class="muted small">Aggregated by day</div>
+            </div>
+          </div>
+          <canvas id="revenueChart" height="120"
+                  data-labels='<%- JSON.stringify(labels || []) %>'
+                  data-values='<%- JSON.stringify(values || []) %>'></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script>
+    const ctx = document.getElementById('revenueChart');
+    if (ctx) {
+      const labels = JSON.parse(ctx.dataset.labels || '[]');
+      const values = JSON.parse(ctx.dataset.values || '[]');
+
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Revenue',
+            data: values,
+            borderColor: '#4f46e5',
+            backgroundColor: 'rgba(79, 70, 229, 0.15)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 3
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `$${Number(ctx.parsed.y || 0).toFixed(2)}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              title: { display: true, text: 'Time' }
+            },
+            y: {
+              title: { display: true, text: 'Amount ($)' },
+              beginAtZero: true,
+              ticks: {
+                callback: (v) => `$${Number(v).toFixed(0)}`
+              }
+            }
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>

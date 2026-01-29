@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/head', { title: 'Add Product' }) %>
+<style>
+  form { color: #111; }
+  h2 { color: #111; }
+  .products-overlay { background-color: transparent; padding: 24px 0; }
+  .products-overlay form .form-label,
+  .products-overlay form .product-label {
+    color: #000 !important;
+  }
+</style>
+</head>
+<body>
+  <%- include('partials/adminnavbar', { user: user, cart: [] }) %>
+
+  <!-- Main Content -->
+  <div class="container mt-4">
+    <div class="products-overlay">
+    <h2 class="text-center mb-4">Add New Product</h2>
+    <form action="/addProduct" method="POST" enctype="multipart/form-data" class="mx-auto" style="max-width: 500px;">
+
+      <div class="mb-3">
+        <label for="name" class="form-label product-label">Product Name</label>
+        <input type="text" class="form-control" id="name" name="name" required>
+      </div>
+
+      <div class="mb-3">
+        <label for="quantity" class="form-label product-label">Quantity</label>
+        <input type="number" class="form-control" id="quantity" name="quantity" min="0" step="1" required>
+      </div>
+
+      <div class="mb-3">
+        <label for="price" class="form-label product-label">Price ($)</label>
+        <input type="number" class="form-control" id="price" name="price" min="0" step="0.01" required>
+      </div>
+
+      <div class="mb-4">
+        <label for="image" class="form-label product-label">Product Image</label>
+        <input class="form-control" type="file" id="image" name="image" accept="image/*" required>
+      </div>
+
+      <div class="d-grid">
+        <button type="submit" class="btn btn-primary">Add Product</button>
+      </div>
+
+    </form>
+    </div>
+  </div>
+</body>
+</html>
