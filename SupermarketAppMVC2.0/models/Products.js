@@ -4,31 +4,75 @@ const Products = {
   // Get all products
   // callback(err, resultsArray)
   getAll(callback) {
-    const sql = 'SELECT id, productName, quantity, price, image FROM products';
+    const sql = `SELECT p.id, p.productName, p.quantity, p.price, p.image,
+                        ROUND(AVG(r.rating),2) AS avg_rating,
+                        COALESCE((SELECT SUM(oi.quantity) FROM order_items oi WHERE oi.product_id = p.id), 0) AS total_sold
+                 FROM products p
+                 LEFT JOIN reviews r ON r.product_id = p.id
+                 GROUP BY p.id, p.productName, p.quantity, p.price, p.image`;
     db.query(sql, (err, results) => {
       if (err) return callback(err);
-      return callback(null, results);
+      return callback(null, results.map(r => ({
+        id: r.id,
+        productName: r.productName,
+        quantity: r.quantity,
+        price: r.price,
+        image: r.image,
+        avg_rating: r.avg_rating !== null ? Number(r.avg_rating) : 0,
+        total_sold: Number(r.total_sold || 0)
+      })));
     });
   },
 
   // Get all products filtered by a search term in productName
   // callback(err, resultsArray)
   getAllFiltered(search, callback) {
-    const sql = 'SELECT id, productName, quantity, price, image FROM products WHERE productName LIKE ?';
+    const sql = `SELECT p.id, p.productName, p.quantity, p.price, p.image,
+                        ROUND(AVG(r.rating),2) AS avg_rating,
+                        COALESCE((SELECT SUM(oi.quantity) FROM order_items oi WHERE oi.product_id = p.id), 0) AS total_sold
+                 FROM products p
+                 LEFT JOIN reviews r ON r.product_id = p.id
+                 WHERE p.productName LIKE ?
+                 GROUP BY p.id, p.productName, p.quantity, p.price, p.image`;
     const term = `%${search}%`;
     db.query(sql, [term], (err, results) => {
       if (err) return callback(err);
-      return callback(null, results);
+      return callback(null, results.map(r => ({
+        id: r.id,
+        productName: r.productName,
+        quantity: r.quantity,
+        price: r.price,
+        image: r.image,
+        avg_rating: r.avg_rating !== null ? Number(r.avg_rating) : 0,
+        total_sold: Number(r.total_sold || 0)
+      })));
     });
   },
 
   // Get a single product by id
   // callback(err, productObject|null)
   getById(id, callback) {
-    const sql = 'SELECT id, productName, quantity, price, image FROM products WHERE id = ? LIMIT 1';
+    const sql = `SELECT p.id, p.productName, p.quantity, p.price, p.image,
+                        ROUND(AVG(r.rating),2) AS avg_rating,
+                        COALESCE((SELECT SUM(oi.quantity) FROM order_items oi WHERE oi.product_id = p.id), 0) AS total_sold
+                 FROM products p
+                 LEFT JOIN reviews r ON r.product_id = p.id
+                 WHERE p.id = ?
+                 GROUP BY p.id, p.productName, p.quantity, p.price, p.image
+                 LIMIT 1`;
     db.query(sql, [id], (err, results) => {
       if (err) return callback(err);
-      return callback(null, results[0] || null);
+      const r = results && results[0];
+      if (!r) return callback(null, null);
+      return callback(null, {
+        id: r.id,
+        productName: r.productName,
+        quantity: r.quantity,
+        price: r.price,
+        image: r.image,
+        avg_rating: r.avg_rating !== null ? Number(r.avg_rating) : 0,
+        total_sold: Number(r.total_sold || 0)
+      });
     });
   },
 

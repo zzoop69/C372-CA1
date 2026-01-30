@@ -16,6 +16,17 @@
       </form>
     </div>
 
+    <% if (lowStock && lowStock.length > 0) { %>
+      <div class="alert alert-warning mt-3 w-auto" role="alert" style="max-width:600px; background-color: #f4a27a; border-color: #d65600; color:#663300; font-size:0.95rem;">
+        <strong>Low Stock:</strong> The following items are below 40 units in inventory:
+        <ul class="mb-0 mt-2">
+          <% lowStock.forEach(item => { %>
+            <li><a href="/product/<%= item.id %>"><%= item.productName %></a> — <strong><%= item.quantity %></strong> units</li>
+          <% }) %>
+        </ul>
+      </div>
+    <% } %>
+
     <div class="products-overlay">
     <p>Welcome, <%= user.username %> (<%= user.role %>)</p>
     <br>

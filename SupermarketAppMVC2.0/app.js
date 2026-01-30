@@ -22,7 +22,6 @@ const ProductsController = require('./controllers/ProductsControllers');
 const AuthControllers = require('./controllers/AuthControllers');
 const stripesService = require('./services/stripes');
 const Transaction = require('./models/Transaction');
-const emailService = require('./services/email');
 
 // Load database connection from centralized `db.js` which reads from `.env`
 const db = require('./db');
@@ -164,15 +163,35 @@ app.get('/admin/dashboard', checkAuthenticated, checkAdmin, (req, res) => {
                 const allItems = (pRows || []).map(r => ({ id: r.id, productName: r.productName, total_sold: Number(r.total_sold || 0) }));
                 const popularItems = allItems.slice(0, 10);
                 const leastSelling = allItems.slice(-10).reverse();
+                // Also fetch top/lowest rated products using reviews (if reviews table exists)
+                const ratingsSql = `SELECT p.id, p.productName, AVG(r.rating) AS avg_rating, COUNT(r.id) AS reviews_count
+                                    FROM products p
+                                    JOIN reviews r ON r.product_id = p.id
+                                    GROUP BY p.id, p.productName
+                                    HAVING reviews_count > 0`;
 
-                return res.render('adminDashboard', {
-                    user: req.session.user,
-                    cart: req.session.cart || [],
-                    totalRevenue,
-                    labels,
-                    values,
-                    popularItems,
-                    leastSelling
+                db.query(ratingsSql, (rErr, rRows) => {
+                    let topRated = [];
+                    let lowRated = [];
+                    if (rErr) {
+                        console.warn('Admin dashboard ratings query failed (perhaps reviews table missing):', rErr && rErr.code ? rErr.code : rErr);
+                    } else {
+                        const rated = (rRows || []).map(rr => ({ id: rr.id, productName: rr.productName, avg_rating: Number(rr.avg_rating || 0).toFixed(2), reviews_count: Number(rr.reviews_count || 0) }));
+                        topRated = rated.sort((a,b) => Number(b.avg_rating) - Number(a.avg_rating) || b.reviews_count - a.reviews_count).slice(0,10);
+                        lowRated = rated.sort((a,b) => Number(a.avg_rating) - Number(b.avg_rating) || b.reviews_count - a.reviews_count).slice(0,10);
+                    }
+
+                    return res.render('adminDashboard', {
+                        user: req.session.user,
+                        cart: req.session.cart || [],
+                        totalRevenue,
+                        labels,
+                        values,
+                        popularItems,
+                        leastSelling,
+                        topRated,
+                        lowRated
+                    });
                 });
             });
         });
@@ -549,10 +568,6 @@ app.get('/stripe/success', checkAuthenticated, async (req, res) => {
             status: 'completed',
             userId: req.session.user && req.session.user.id
         });
-        // attempt to send invoice email (non-blocking)
-        if (req.session.user && req.session.user.email) {
-            emailService.sendInvoice(orderId, req.session.user).catch(e => console.error('Invoice email error (Stripe):', e));
-        }
         req.flash('success', 'Payment completed and order placed');
         return res.redirect(`/payment-success?orderId=${orderId}`);
     } catch (err) {
@@ -610,10 +625,6 @@ app.post('/paypal/capture-order', checkAuthenticated, async (req, res) => {
                 status: 'completed',
                 userId: req.session.user && req.session.user.id
             });
-            // send invoice email if possible (do not block response)
-            if (req.session.user && req.session.user.email) {
-                emailService.sendInvoice(orderId, req.session.user).catch(e => console.error('Invoice email error (PayPal):', e));
-            }
             req.flash('success', 'Payment completed and order placed');
             return res.json({ status: 'COMPLETED', orderId });
         }
@@ -678,16 +689,18 @@ app.get('/orders', checkAuthenticated, (req, res) => {
     if (!userId) return res.redirect('/login');
 
     // fetch orders and items
-    const sql = `SELECT o.order_id AS id, o.total_amount, o.order_date,
+    const sql = `SELECT o.order_id AS id, o.total_amount, o.order_date, o.status,
                   oi.item_id AS order_item_id, oi.product_id, oi.quantity, oi.price_at_time_of_purchase AS price,
-                  p.productName
+                  p.productName,
+                  r.id AS review_id, r.rating AS review_rating, r.review_text AS review_text
                  FROM orders o
                  LEFT JOIN order_items oi ON oi.order_id = o.order_id
                  LEFT JOIN products p ON p.id = oi.product_id
+                 LEFT JOIN reviews r ON r.order_id = o.order_id AND r.product_id = oi.product_id AND r.user_id = ?
                  WHERE o.user_id = ?
                  ORDER BY o.order_date DESC, o.order_id DESC`;
 
-    db.query(sql, [userId], (err, rows) => {
+    db.query(sql, [userId, userId], (err, rows) => {
         if (err) {
             console.error('Error fetching orders:', err);
             req.flash('error', 'Unable to load orders');
@@ -698,10 +711,10 @@ app.get('/orders', checkAuthenticated, (req, res) => {
         const ordersMap = new Map();
         rows.forEach(r => {
             if (!ordersMap.has(r.id)) {
-                ordersMap.set(r.id, { id: r.id, total_amount: r.total_amount, order_date: r.order_date, items: [] });
+                ordersMap.set(r.id, { id: r.id, total_amount: r.total_amount, order_date: r.order_date, status: r.status, items: [] });
             }
             if (r.order_item_id) {
-                ordersMap.get(r.id).items.push({ product_id: r.product_id, productName: r.productName, quantity: r.quantity, price: r.price });
+                ordersMap.get(r.id).items.push({ product_id: r.product_id, productName: r.productName, quantity: r.quantity, price: r.price, review_id: r.review_id, review_rating: r.review_rating, review_text: r.review_text });
             }
         });
 
@@ -709,6 +722,55 @@ app.get('/orders', checkAuthenticated, (req, res) => {
         res.render('orders', { orders, user: req.session.user });
     });
 });
+
+    // Submit or update a review for an item in a completed order
+    app.post('/orders/:orderId/items/:productId/review', checkAuthenticated, (req, res) => {
+        const userId = req.session.user && req.session.user.id;
+        const orderId = parseInt(req.params.orderId, 10);
+        const productId = parseInt(req.params.productId, 10);
+        const rating = Math.min(5, Math.max(1, parseInt(req.body.rating, 10) || 0));
+        const reviewText = (req.body.review_text || '').trim();
+
+        if (!userId) return res.status(403).send('Not authenticated');
+        if (!orderId || !productId || !rating) {
+            req.flash('error', 'Invalid review submission');
+            return res.redirect('/orders');
+        }
+
+        // Verify order belongs to user and is completed
+        db.query('SELECT order_id, status FROM orders WHERE order_id = ? AND user_id = ?', [orderId, userId], (oErr, oRows) => {
+            if (oErr || !oRows || oRows.length === 0) {
+                req.flash('error', 'Order not found');
+                return res.redirect('/orders');
+            }
+            const status = oRows[0].status;
+            if (status !== 'completed') {
+                req.flash('error', 'Reviews are only allowed for completed purchases');
+                return res.redirect('/orders');
+            }
+
+            // Verify item is part of the order
+            db.query('SELECT 1 FROM order_items WHERE order_id = ? AND product_id = ?', [orderId, productId], (iErr, iRows) => {
+                if (iErr || !iRows || iRows.length === 0) {
+                    req.flash('error', 'Item not found in order');
+                    return res.redirect('/orders');
+                }
+
+                const sql = `INSERT INTO reviews (order_id, product_id, user_id, rating, review_text, created_at)
+                             VALUES (?, ?, ?, ?, ?, NOW())
+                             ON DUPLICATE KEY UPDATE rating = VALUES(rating), review_text = VALUES(review_text), updated_at = NOW()`;
+                db.query(sql, [orderId, productId, userId, rating, reviewText], (rErr) => {
+                    if (rErr) {
+                        console.error('Error saving review:', rErr);
+                        req.flash('error', 'Unable to save review');
+                        return res.redirect('/orders');
+                    }
+                    req.flash('success', 'Review saved');
+                    return res.redirect('/orders');
+                });
+            });
+        });
+    });
 
     // --- Admin order management routes ---
     app.get('/admin/orders', checkAuthenticated, checkAdmin, (req, res, next) => {

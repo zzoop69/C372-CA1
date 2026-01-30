@@ -53,6 +53,7 @@
               <h5 class="card-title"><a href="/product/<%= products[i].id %>" class="text-decoration-none text-dark"><%= products[i].productName %></a></h5>
               <p class="card-text mb-1" style="color: rgb(0, 0, 0);">Price: <strong>$<%= products[i].price.toFixed(2) %></strong></p>
               <p class="card-text text-muted">Available: <%= products[i].quantity %></p>
+              <p class="card-text text-muted">Avg Rating: <strong><%= (products[i].avg_rating || 0).toFixed(2) %></strong> · Sold: <strong><%= products[i].total_sold %></strong></p>
 
               <div class="mt-auto">
                 <form id="add-form-<%= products[i].id %>" action="/add-to-cart/<%= products[i].id %>" method="POST" class="add-to-cart-form d-flex gap-2 align-items-center" data-name="<%= products[i].productName %>">

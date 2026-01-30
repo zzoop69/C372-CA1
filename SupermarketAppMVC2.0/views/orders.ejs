@@ -44,6 +44,44 @@
                   <% }) %>
                 </tbody>
               </table>
+
+              <% /* Reviews: allow customers to rate items from completed orders */ %>
+              <% if (o.status === 'completed') { %>
+                <div class="mt-2">
+                  <h6>Leave a review</h6>
+                  <% o.items.forEach(it => { %>
+                    <div class="card p-2 mb-2">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <div><strong><%= it.productName %></strong></div>
+                        <div>
+                          <% if (it.review_id) { %>
+                            <span class="badge bg-success">Reviewed</span>
+                          <% } %>
+                        </div>
+                      </div>
+                      <form method="POST" action="/orders/<%= o.id %>/items/<%= it.product_id %>/review" class="mt-2">
+                        <div class="row g-2 align-items-center">
+                          <div class="col-auto">
+                            <label class="form-label small">Rating</label>
+                            <select name="rating" class="form-select form-select-sm">
+                              <% for (let r=1; r<=5; r++) { %>
+                                <option value="<%= r %>" <%= (it.review_rating && Number(it.review_rating) === r) ? 'selected' : '' %>><%= r %> ★</option>
+                              <% } %>
+                            </select>
+                          </div>
+                          <div class="col">
+                            <label class="form-label small">Review</label>
+                            <input name="review_text" class="form-control form-control-sm" value="<%= it.review_text ? it.review_text : '' %>" placeholder="Write your review (optional)" />
+                          </div>
+                          <div class="col-auto align-self-end">
+                            <button class="btn btn-sm btn-primary">Save</button>
+                          </div>
+                        </div>
+                      </form>
+                    </div>
+                  <% }) %>
+                </div>
+              <% } %>
             </div>
 
             <div class="mt-2">

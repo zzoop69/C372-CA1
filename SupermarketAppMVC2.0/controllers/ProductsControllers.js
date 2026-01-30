@@ -1,4 +1,5 @@
 const Products = require('../models/Products');
+const db = require('../db');
 
 const ProductsController = {
   // List all products
@@ -19,8 +20,18 @@ const ProductsController = {
           messages: req.flash('success'),
           errors: req.flash('error')
         };
+        // If admin, fetch low-stock items (< 40) and include in renderData
         if (req.session && req.session.user && req.session.user.role === 'admin') {
-          return res.render('inventory', renderData);
+          const lowSql = 'SELECT id, productName, quantity FROM products WHERE quantity < ? ORDER BY quantity ASC LIMIT 20';
+          return db.query(lowSql, [40], (lErr, lRows) => {
+            if (lErr) {
+              console.error('Error fetching low-stock items:', lErr);
+              renderData.lowStock = [];
+            } else {
+              renderData.lowStock = lRows || [];
+            }
+            return res.render('inventory', renderData);
+          });
         }
         return res.render('shopping', renderData);
       }
@@ -44,7 +55,19 @@ const ProductsController = {
       if (!product) return res.status(404).send('Product not found');
 
       if (req.headers.accept && req.headers.accept.includes('text/html')) {
-        return res.render('product', { product, user: req.session && req.session.user, cart: req.session && req.session.cart ? req.session.cart : [] });
+        // Fetch product reviews to display beneath product details for all users
+        const sql = `SELECT r.id, r.rating, r.review_text, r.created_at, u.username
+                     FROM reviews r
+                     LEFT JOIN users u ON u.id = r.user_id
+                     WHERE r.product_id = ?
+                     ORDER BY r.created_at DESC`;
+        return db.query(sql, [id], (rErr, rRows) => {
+          if (rErr) {
+            console.error('Error fetching reviews for product:', rErr);
+            return res.render('product', { product, user: req.session && req.session.user, cart: req.session && req.session.cart ? req.session.cart : [], reviews: [] });
+          }
+          return res.render('product', { product, user: req.session && req.session.user, cart: req.session && req.session.cart ? req.session.cart : [], reviews: rRows || [] });
+        });
       }
       return res.json(product);
     });
