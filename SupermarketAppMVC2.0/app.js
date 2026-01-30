@@ -22,6 +22,7 @@ const ProductsController = require('./controllers/ProductsControllers');
 const AuthControllers = require('./controllers/AuthControllers');
 const stripesService = require('./services/stripes');
 const Transaction = require('./models/Transaction');
+const emailService = require('./services/email');
 
 // Load database connection from centralized `db.js` which reads from `.env`
 const db = require('./db');
@@ -138,12 +139,41 @@ app.get('/admin/dashboard', checkAuthenticated, checkAdmin, (req, res) => {
             const labels = (sRows || []).map(r => r.period);
             const values = (sRows || []).map(r => Number(r.total));
 
-            return res.render('adminDashboard', {
-                user: req.session.user,
-                cart: req.session.cart || [],
-                totalRevenue,
-                labels,
-                values
+            // Fetch popular items (top and least selling)
+            const popularSql = `SELECT p.id, p.productName, COALESCE(SUM(oi.quantity),0) AS total_sold
+                                FROM products p
+                                LEFT JOIN order_items oi ON oi.product_id = p.id
+                                GROUP BY p.id, p.productName
+                                ORDER BY total_sold DESC`;
+
+            db.query(popularSql, (pErr, pRows) => {
+                if (pErr) {
+                    console.error('Admin dashboard popular items error:', pErr);
+                    // Still render dashboard without popular items
+                    return res.render('adminDashboard', {
+                        user: req.session.user,
+                        cart: req.session.cart || [],
+                        totalRevenue,
+                        labels,
+                        values,
+                        popularItems: [] ,
+                        leastSelling: []
+                    });
+                }
+
+                const allItems = (pRows || []).map(r => ({ id: r.id, productName: r.productName, total_sold: Number(r.total_sold || 0) }));
+                const popularItems = allItems.slice(0, 10);
+                const leastSelling = allItems.slice(-10).reverse();
+
+                return res.render('adminDashboard', {
+                    user: req.session.user,
+                    cart: req.session.cart || [],
+                    totalRevenue,
+                    labels,
+                    values,
+                    popularItems,
+                    leastSelling
+                });
             });
         });
     });
@@ -519,6 +549,10 @@ app.get('/stripe/success', checkAuthenticated, async (req, res) => {
             status: 'completed',
             userId: req.session.user && req.session.user.id
         });
+        // attempt to send invoice email (non-blocking)
+        if (req.session.user && req.session.user.email) {
+            emailService.sendInvoice(orderId, req.session.user).catch(e => console.error('Invoice email error (Stripe):', e));
+        }
         req.flash('success', 'Payment completed and order placed');
         return res.redirect(`/payment-success?orderId=${orderId}`);
     } catch (err) {
@@ -576,6 +610,10 @@ app.post('/paypal/capture-order', checkAuthenticated, async (req, res) => {
                 status: 'completed',
                 userId: req.session.user && req.session.user.id
             });
+            // send invoice email if possible (do not block response)
+            if (req.session.user && req.session.user.email) {
+                emailService.sendInvoice(orderId, req.session.user).catch(e => console.error('Invoice email error (PayPal):', e));
+            }
             req.flash('success', 'Payment completed and order placed');
             return res.json({ status: 'COMPLETED', orderId });
         }
