@@ -111,14 +111,32 @@ app.get('/inventory', checkAuthenticated, checkAdmin, (req, res, next) => {
 
 // Admin dashboard (revenue summary)
 app.get('/admin/dashboard', checkAuthenticated, checkAdmin, (req, res) => {
-    const totalSql = `SELECT COALESCE(SUM(amount), 0) AS totalRevenue
-                      FROM transactions
-                      WHERE status = 'completed'`;
-    const seriesSql = `SELECT DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00') AS period, COALESCE(SUM(amount), 0) AS total
-                       FROM transactions
-                       WHERE status = 'completed'
-                       GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00')
-                       ORDER BY DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00')`;
+    const period = req.query.period === 'daily' ? 'daily' : 'monthly';
+
+    // Build SQL depending on selected period
+    let totalSql;
+    let seriesSql;
+    if (period === 'daily') {
+        // Last 30 days, grouped by date
+        totalSql = `SELECT COALESCE(SUM(amount), 0) AS totalRevenue
+                    FROM transactions
+                    WHERE status = 'completed' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)`;
+        seriesSql = `SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS period, COALESCE(SUM(amount), 0) AS total
+                     FROM transactions
+                     WHERE status = 'completed' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)
+                     GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
+                     ORDER BY DATE_FORMAT(created_at, '%Y-%m-%d')`;
+    } else {
+        // Monthly: last 12 months
+        totalSql = `SELECT COALESCE(SUM(amount), 0) AS totalRevenue
+                    FROM transactions
+                    WHERE status = 'completed' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 11 MONTH)`;
+        seriesSql = `SELECT DATE_FORMAT(created_at, '%Y-%m') AS period, COALESCE(SUM(amount), 0) AS total
+                     FROM transactions
+                     WHERE status = 'completed' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 11 MONTH)
+                     GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+                     ORDER BY DATE_FORMAT(created_at, '%Y-%m')`;
+    }
 
     db.query(totalSql, (tErr, tRows) => {
         if (tErr) {
@@ -135,62 +153,114 @@ app.get('/admin/dashboard', checkAuthenticated, checkAdmin, (req, res) => {
             }
 
             const totalRevenue = tRows && tRows[0] ? Number(tRows[0].totalRevenue) : 0;
-            const labels = (sRows || []).map(r => r.period);
-            const values = (sRows || []).map(r => Number(r.total));
 
-            // Fetch popular items (top and least selling)
-            const popularSql = `SELECT p.id, p.productName, COALESCE(SUM(oi.quantity),0) AS total_sold
-                                FROM products p
-                                LEFT JOIN order_items oi ON oi.product_id = p.id
-                                GROUP BY p.id, p.productName
-                                ORDER BY total_sold DESC`;
+            // Prepare full label series for consistent charting (fill zeros where no rows returned)
+            const seriesMap = {};
+            (sRows || []).forEach(r => { seriesMap[String(r.period)] = Number(r.total); });
 
-            db.query(popularSql, (pErr, pRows) => {
-                if (pErr) {
-                    console.error('Admin dashboard popular items error:', pErr);
-                    // Still render dashboard without popular items
-                    return res.render('adminDashboard', {
-                        user: req.session.user,
-                        cart: req.session.cart || [],
-                        totalRevenue,
-                        labels,
-                        values,
-                        popularItems: [] ,
-                        leastSelling: []
-                    });
+            const labels = [];
+            const values = [];
+            const now = new Date();
+            if (period === 'daily') {
+                // last 30 days (oldest -> newest)
+                for (let i = 29; i >= 0; i--) {
+                    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+                    const y = d.getFullYear();
+                    const m = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    const key = `${y}-${m}-${day}`;
+                    labels.push(key);
+                    values.push(seriesMap[key] || 0);
+                }
+            } else {
+                // last 12 months (oldest -> newest)
+                for (let i = 11; i >= 0; i--) {
+                    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                    const y = d.getFullYear();
+                    const m = String(d.getMonth() + 1).padStart(2, '0');
+                    const key = `${y}-${m}`;
+                    labels.push(key);
+                    values.push(seriesMap[key] || 0);
+                }
+            }
+
+            // also fetch today's and yesterday's totals
+            const todayYesterdaySql = `SELECT 
+                                        COALESCE(SUM(CASE WHEN DATE(created_at)=CURDATE() THEN amount END), 0) AS todayRevenue,
+                                        COALESCE(SUM(CASE WHEN DATE(created_at)=DATE_SUB(CURDATE(), INTERVAL 1 DAY) THEN amount END), 0) AS yesterdayRevenue
+                                     FROM transactions
+                                     WHERE status = 'completed'`;
+
+            db.query(todayYesterdaySql, (dErr, dRows) => {
+                let todayRevenue = 0;
+                let yesterdayRevenue = 0;
+                if (dErr) {
+                    console.warn('Could not fetch today/yesterday revenue:', dErr);
+                } else if (dRows && dRows[0]) {
+                    todayRevenue = Number(dRows[0].todayRevenue || 0);
+                    yesterdayRevenue = Number(dRows[0].yesterdayRevenue || 0);
                 }
 
-                const allItems = (pRows || []).map(r => ({ id: r.id, productName: r.productName, total_sold: Number(r.total_sold || 0) }));
-                const popularItems = allItems.slice(0, 10);
-                const leastSelling = allItems.slice(-10).reverse();
-                // Also fetch top/lowest rated products using reviews (if reviews table exists)
-                const ratingsSql = `SELECT p.id, p.productName, AVG(r.rating) AS avg_rating, COUNT(r.id) AS reviews_count
+                // Fetch popular items (top and least selling)
+                const popularSql = `SELECT p.id, p.productName, COALESCE(SUM(oi.quantity),0) AS total_sold
                                     FROM products p
-                                    JOIN reviews r ON r.product_id = p.id
+                                    LEFT JOIN order_items oi ON oi.product_id = p.id
                                     GROUP BY p.id, p.productName
-                                    HAVING reviews_count > 0`;
+                                    ORDER BY total_sold DESC`;
 
-                db.query(ratingsSql, (rErr, rRows) => {
-                    let topRated = [];
-                    let lowRated = [];
-                    if (rErr) {
-                        console.warn('Admin dashboard ratings query failed (perhaps reviews table missing):', rErr && rErr.code ? rErr.code : rErr);
-                    } else {
-                        const rated = (rRows || []).map(rr => ({ id: rr.id, productName: rr.productName, avg_rating: Number(rr.avg_rating || 0).toFixed(2), reviews_count: Number(rr.reviews_count || 0) }));
-                        topRated = rated.sort((a,b) => Number(b.avg_rating) - Number(a.avg_rating) || b.reviews_count - a.reviews_count).slice(0,10);
-                        lowRated = rated.sort((a,b) => Number(a.avg_rating) - Number(b.avg_rating) || b.reviews_count - a.reviews_count).slice(0,10);
+                db.query(popularSql, (pErr, pRows) => {
+                    if (pErr) {
+                        console.error('Admin dashboard popular items error:', pErr);
+                        // Still render dashboard without popular items
+                        return res.render('adminDashboard', {
+                            user: req.session.user,
+                            cart: req.session.cart || [],
+                            totalRevenue,
+                            labels,
+                            values,
+                            popularItems: [] ,
+                            leastSelling: [],
+                            currentPeriod: period,
+                            todayRevenue,
+                            yesterdayRevenue
+                        });
                     }
 
-                    return res.render('adminDashboard', {
-                        user: req.session.user,
-                        cart: req.session.cart || [],
-                        totalRevenue,
-                        labels,
-                        values,
-                        popularItems,
-                        leastSelling,
-                        topRated,
-                        lowRated
+                    const allItems = (pRows || []).map(r => ({ id: r.id, productName: r.productName, total_sold: Number(r.total_sold || 0) }));
+                    const popularItems = allItems.slice(0, 10);
+                    const leastSelling = allItems.slice(-10).reverse();
+                    // Also fetch top/lowest rated products using reviews (if reviews table exists)
+                    const ratingsSql = `SELECT p.id, p.productName, AVG(r.rating) AS avg_rating, COUNT(r.id) AS reviews_count
+                                        FROM products p
+                                        JOIN reviews r ON r.product_id = p.id
+                                        GROUP BY p.id, p.productName
+                                        HAVING reviews_count > 0`;
+
+                    db.query(ratingsSql, (rErr, rRows) => {
+                        let topRated = [];
+                        let lowRated = [];
+                        if (rErr) {
+                            console.warn('Admin dashboard ratings query failed (perhaps reviews table missing):', rErr && rErr.code ? rErr.code : rErr);
+                        } else {
+                            const rated = (rRows || []).map(rr => ({ id: rr.id, productName: rr.productName, avg_rating: Number(rr.avg_rating || 0).toFixed(2), reviews_count: Number(rr.reviews_count || 0) }));
+                            topRated = rated.sort((a,b) => Number(b.avg_rating) - Number(a.avg_rating) || b.reviews_count - a.reviews_count).slice(0,10);
+                            lowRated = rated.sort((a,b) => Number(a.avg_rating) - Number(b.avg_rating) || b.reviews_count - a.reviews_count).slice(0,10);
+                        }
+
+                        return res.render('adminDashboard', {
+                            user: req.session.user,
+                            cart: req.session.cart || [],
+                            totalRevenue,
+                            labels,
+                            values,
+                            popularItems,
+                            leastSelling,
+                            topRated,
+                            lowRated,
+                            currentPeriod: period,
+                            todayRevenue,
+                            yesterdayRevenue
+                        });
                     });
                 });
             });

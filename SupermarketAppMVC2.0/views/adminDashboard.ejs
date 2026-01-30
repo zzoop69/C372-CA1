@@ -22,6 +22,13 @@
         <div class="card p-3">
           <div class="muted">Total Revenue</div>
           <div class="kpi-value">$<%= Number(totalRevenue || 0).toFixed(2) %></div>
+          <div class="d-flex gap-2 mt-2">
+            <div class="muted small">Period: <%= (typeof currentPeriod !== 'undefined' && currentPeriod === 'daily') ? 'Last 30 days' : 'Last 12 months' %></div>
+          </div>
+          <div class="mt-2">
+            <div class="small muted">Today: <strong>$<%= Number(todayRevenue || 0).toFixed(2) %></strong></div>
+            <div class="small muted">Yesterday: <strong>$<%= Number(yesterdayRevenue || 0).toFixed(2) %></strong></div>
+          </div>
         </div>
       </div>
       <div class="col-md-8">
@@ -29,7 +36,13 @@
           <div class="d-flex justify-content-between align-items-center mb-2">
             <div>
               <div class="fw-semibold">Revenue Over Time</div>
-              <div class="muted small">Aggregated by day</div>
+              <div class="muted small">Aggregated by <%= (typeof currentPeriod !== 'undefined' && currentPeriod === 'daily') ? 'day' : 'month' %></div>
+            </div>
+            <div>
+              <div class="btn-group btn-group-sm" role="group" aria-label="Period toggle">
+                <a href="/admin/dashboard?period=daily" class="btn <%= (typeof currentPeriod !== 'undefined' && currentPeriod === 'daily') ? 'btn-primary' : 'btn-outline-secondary' %>">Daily</a>
+                <a href="/admin/dashboard?period=monthly" class="btn <%= (typeof currentPeriod === 'undefined' || currentPeriod === 'monthly') ? 'btn-primary' : 'btn-outline-secondary' %>">Monthly</a>
+              </div>
             </div>
           </div>
           <canvas id="revenueChart" height="120"
